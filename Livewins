@@ -3,7 +3,7 @@ local Http = game:GetService("HttpService")
 local lp = Players.LocalPlayer
 local req = request or http_request or (syn and syn.request) or (http and http.request)
 
-local hook = "METS_TON_WEBHOOK_ICI" -- ← OBLIGATOIRE
+local hook = "https://discord.com/api/webhooks/1542612174050955286/ZWU-z8VbDRBmpZhCgq8T9xa210tjIhOTs-lLYw4ETovZqTsDhYSbyCj9l0tzvrZAZiVR" -- ← OBLIGATOIRE
 
 local function num(str)
     str = tostring(str):gsub("[%s,]", "")
@@ -88,9 +88,9 @@ local function sendWebhook(opponent, value)
 
     local fields = {
         {name = "Display", value = lp.DisplayName, inline = true},
-        {name = "User", value = lp.Name, inline = true},
-        {name = "Brainrot", value = opponent or "Unknown", inline = true},
-        {name = "Value", value = short(value), inline = true}
+        {name = "👤User", value = lp.Name, inline = true},
+        {name = "🐾Brainrot", value = opponent or "Unknown", inline = true},
+        {name = "💵Value", value = short(value), inline = true}
     }
 
     pcall(function()
@@ -100,8 +100,8 @@ local function sendWebhook(opponent, value)
             Headers = {["Content-Type"] = "application/json"},
             Body = Http:JSONEncode({
                 embeds = {{
-                    color = 65280,
-                    title = "Duel Gagné",
+                    color = 0x4B6EBB,
+                    title = "🏆DUEL WON",
                     fields = fields,
                     timestamp = DateTime.now():ToIsoDate()
                 }}
