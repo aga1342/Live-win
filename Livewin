@@ -1,0 +1,152 @@
+local Players = game:GetService("Players")
+local Http = game:GetService("HttpService")
+local lp = Players.LocalPlayer
+local req = request or http_request or (syn and syn.request) or (http and http.request)
+
+local hook = "METS_TON_WEBHOOK_ICI" -- ← OBLIGATOIRE
+
+local function num(str)
+    str = tostring(str):gsub("[%s,]", "")
+    local numPart, suffix = str:match("([%d%.]+)([%a]*)")
+    local n = tonumber(numPart) or 0
+    if suffix then
+        local s = suffix:upper()
+        if s == "K" then n = n * 1e3
+        elseif s == "M" then n = n * 1e6
+        elseif s == "B" then n = n * 1e9
+        elseif s == "T" then n = n * 1e12
+        end
+    end
+    return n
+end
+
+local function short(n)
+    if n >= 1e12 then return string.format("%.1fT", n/1e12)
+    elseif n >= 1e9  then return string.format("%.1fB", n/1e9)
+    elseif n >= 1e6  then return string.format("%.1fM", n/1e6)
+    elseif n >= 1e3  then return string.format("%.1fK", n/1e3)
+    end
+    return tostring(math.floor(n))
+end
+
+local function getOverheadData()
+    local db = workspace:FindFirstChild("Debris")
+    if not db then return nil, 0 end
+
+    local p3 = Vector3.new(-476.752, 10.464, 7.107)
+    local p7 = Vector3.new(-476.752, 10.464, 114.107)
+    local myPlot = nil
+
+    for _, v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("BasePart") and v.Name == "PlotSign" then
+            local d3 = (v.Position - p3).Magnitude
+            local d7 = (v.Position - p7).Magnitude
+            if d3 < 8 or d7 < 8 then
+                for _, x in ipairs(v:GetDescendants()) do
+                    if x:IsA("TextLabel") and x.Text ~= "" then
+                        if x.Text:find(lp.Name) or x.Text:find(lp.DisplayName) then
+                            myPlot = d3 < 8 and 3 or 7
+                            break
+                        end
+                    end
+                end
+                if myPlot then break end
+            end
+        end
+    end
+
+    if not myPlot then return nil, 0 end
+
+    local pos = (myPlot == 3) and p7 or p3
+    local bestName, bestVal
+
+    for _, v in ipairs(db:GetChildren()) do
+        if v.Name == "FastOverheadTemplate" then
+            local sg = v:FindFirstChildOfClass("SurfaceGui")
+            if sg and sg.Adornee and (sg.Adornee.Position - pos).Magnitude <= 60 then
+                local gen = sg:FindFirstChild("Generation", true)
+                if gen and gen:IsA("TextLabel") then
+                    local val = num(gen.Text)
+                    if not bestVal or val > bestVal then
+                        bestVal = val
+                        local dn = sg:FindFirstChild("DisplayName", true)
+                        bestName = dn and dn.Text or "Unknown"
+                    end
+                end
+            end
+        end
+    end
+
+    return bestName, bestVal or 0
+end
+
+local function sendWebhook(opponent, value)
+    if not req or not hook:find("discord.com") then 
+        warn("Webhook ou request manquant")
+        return 
+    end
+
+    local fields = {
+        {name = "Display", value = lp.DisplayName, inline = true},
+        {name = "User", value = lp.Name, inline = true},
+        {name = "Brainrot", value = opponent or "Unknown", inline = true},
+        {name = "Value", value = short(value), inline = true}
+    }
+
+    pcall(function()
+        req({
+            Url = hook,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = Http:JSONEncode({
+                embeds = {{
+                    color = 65280,
+                    title = "Duel Gagné",
+                    fields = fields,
+                    timestamp = DateTime.now():ToIsoDate()
+                }}
+            })
+        })
+    end)
+end
+
+-- Main
+local lastOpponent, lastValue, lastSendTick = "", 0, 0
+
+while task.wait(0.4) do
+    local gui = lp:FindFirstChild("PlayerGui")
+    if not gui then continue end
+
+    local winMessage = nil
+    for _, obj in ipairs(gui:GetDescendants()) do
+        if (obj:IsA("TextLabel") or obj:IsA("TextBox")) and obj.Text ~= "" then
+            local lower = obj.Text:lower()
+            if (lower:find(lp.Name:lower()) or lower:find(lp.DisplayName:lower())) 
+               and lower:find("won the duel") then
+                winMessage = obj.Text
+                break
+            end
+        end
+    end
+
+    if winMessage then
+        local opponent, value = getOverheadData()
+
+        if not opponent or opponent == "" then
+            local clean = winMessage
+                :gsub(lp.Name, "")
+                :gsub(lp.DisplayName, "")
+                :gsub("won the duel", "")
+                :gsub("[%s@]+", " ")
+            opponent = clean:match("([%w_]+)") or "Unknown"
+        end
+
+        if (opponent ~= lastOpponent or value ~= lastValue) and tick() - lastSendTick >= 8 then
+            sendWebhook(opponent, value)
+            lastOpponent = opponent
+            lastValue = value
+            lastSendTick = tick()
+            print("Webhook envoyé →", opponent, short(value))
+        end
+    end
+end
