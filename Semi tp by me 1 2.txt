@@ -1,0 +1,310 @@
+
+-- Singe311 V2
+local TweenService=game:GetService("TweenService")
+local UserInputService=game:GetService("UserInputService")
+local RunService=game:GetService("RunService")
+local Players=game:GetService("Players")
+local ReplicatedStorage=game:GetService("ReplicatedStorage")
+local Player=Players.LocalPlayer
+if not Player.Character then Player.CharacterAdded:Wait()end
+local isMobile=UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+_G._FH_CarpetTP_Speed=214
+local _fhCarpetActiveTween=nil
+local NetMod=ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Net")
+local NetClone=require(NetMod:Clone())
+local function getRemote(name)if not name then return nil end;local ok,rn=pcall(function()return NetClone:RemoteEvent(name)end)if not ok or not rn then return nil end;return NetMod[tostring(rn)]end
+_G._FH_GetRemote=getRemote
+_FH_StealRemote=getRemote("3ba148c9-7ed6-4675-93f8-9f7c356a2c54")
+_FH_STEAL_U1="cda5c764-d4e3-45c4-94e4-53a538347590"
+_FH_STEAL_U2="8c852fbf-d542-4ef4-aa28-612e24db8d4a"
+function _FH_ResolvePromptTarget(prompt)if not prompt or not prompt.Parent then return nil end;local att=prompt.Parent;local spawn=att and att.Parent;local base=spawn and spawn.Parent;local podium=base and base.Parent;local pods=podium and podium.Parent;local plot=pods and pods.Parent;local pod=podium and tonumber(podium.Name)if not(plot and pod)then return nil end;return{plotName=plot.Name,pod=pod}end
+function _FH_StartTrip(target)local T0=workspace:GetServerTimeNow()_G._FH_LastStealStart=tick()return{t0=T0,startedAt=tick(),target=target}end
+function _FH_FinishSteal(ctx)if not ctx or not ctx.target then return false end;local elapsed=tick()-ctx.startedAt;if elapsed<1.3 then task.wait(1.3-elapsed)end;local ts=ctx.t0+1.3+31;pcall(function()_FH_StealRemote:FireServer(ts,_FH_STEAL_U1,ctx.target.plotName,ctx.target.pod)end)pcall(function()_FH_StealRemote:FireServer(ts,_FH_STEAL_U2,ctx.target.plotName,ctx.target.pod)end)return true end
+function _FH_FireStealPrompt(prompt)local target=_FH_ResolvePromptTarget(prompt)if not target then return false end;local ctx=_FH_StartTrip(target)return _FH_FinishSteal(ctx)end
+function _FH_AG_IsMyPlot(plot)if not plot or not plot:IsA("Model")then return false end;local sign=plot:FindFirstChild("PlotSign")return sign and sign:FindFirstChild("YourBase")and sign.YourBase.Enabled end
+local __stealCbCache_v2={}local __MIN_HOLD_TIME_v2=1.3;local __TRIGGER_AFTER_GREEN_v2=0.02
+local function __buildStealCallbacks_v2(prompt)if __stealCbCache_v2[prompt]then return __stealCbCache_v2[prompt]end;if not getconnections then return nil end;local data={hold={},trigger={}}local ok1,conns1=pcall(getconnections,prompt.PromptButtonHoldBegan)if ok1 and type(conns1)=="table"then for _,c in ipairs(conns1)do if type(c.Function)=="function"then table.insert(data.hold,c.Function)end end end;local ok2,conns2=pcall(getconnections,prompt.Triggered)if ok2 and type(conns2)=="table"then for _,c in ipairs(conns2)do if type(c.Function)=="function"then table.insert(data.trigger,c.Function)end end end;if#data.hold==0 and#data.trigger==0 then return nil end;__stealCbCache_v2[prompt]=data;return data end
+local __FH_v2={}
+function __FH_v2.startStealHold(prompt,method)if not prompt or not prompt.Parent then return nil end;local cb=__buildStealCallbacks_v2(prompt)if not cb then return nil end;for _,fn in ipairs(cb.hold)do task.spawn(fn)end;local now=tick()return{prompt=prompt,cb=cb,method=method,ragdollFireTime=now,startedAt=now,holdBeganAt=now,holdDone=true}end
+function __FH_v2.waitForStealTime(ctx,sec)if not ctx or sec>=1.0 then return end;local elapsed=tick()-ctx.ragdollFireTime;if elapsed<sec then task.wait(sec-elapsed)end end
+function __FH_v2.finishStealHold(ctx)if not ctx then return false end;if not ctx.holdBeganAt then for _,fn in ipairs(ctx.cb.hold)do task.spawn(fn)end;ctx.holdBeganAt=tick()task.wait(__MIN_HOLD_TIME_v2)end;local heldFor=tick()-(ctx.holdBeganAt or tick())if heldFor<__MIN_HOLD_TIME_v2 then task.wait(__MIN_HOLD_TIME_v2-heldFor)end;task.wait(__TRIGGER_AFTER_GREEN_v2)for _,fn in ipairs(ctx.cb.trigger)do task.spawn(fn)end;return true end
+local function _FH_V2FireStealPrompt(prompt,finalizeFn)if not prompt or not prompt.Parent then return false end;local cb=__buildStealCallbacks_v2(prompt)if not cb then local target=_FH_ResolvePromptTarget(prompt)if not target then return false end;local ctx=_FH_StartTrip(target)if finalizeFn then pcall(finalizeFn)end;return _FH_FinishSteal(ctx)end;local target=_FH_ResolvePromptTarget(prompt)local ctx=target and _FH_StartTrip(target)or nil;for _,fn in ipairs(cb.hold)do task.spawn(fn)end;local holdBeganAt=tick()if finalizeFn then local waitFor=1.3-(tick()-holdBeganAt)-0.05;if waitFor>0 then task.wait(waitFor)end;pcall(finalizeFn)else local holdElapsed=tick()-holdBeganAt;if holdElapsed<__MIN_HOLD_TIME_v2 then task.wait(__MIN_HOLD_TIME_v2-holdElapsed)end end;task.wait(__TRIGGER_AFTER_GREEN_v2)for _,fn in ipairs(cb.trigger)do task.spawn(fn)end;if ctx then task.spawn(function()_FH_FinishSteal(ctx)end)end;return true end
+local function _isCurrentlyGiant()local c=Player.Character;if not c then return false end;local hum=c:FindFirstChildOfClass("Humanoid")if not hum then return false end;local scale=hum:FindFirstChild("BodyHeightScale")or hum:FindFirstChild("BodyDepthScale")or hum:FindFirstChild("BodyWidthScale")if scale and scale:IsA("NumberValue")and scale.Value>=2.5 then return true end;return false end
+local function _activateGiantPotion()if _isCurrentlyGiant()then return end;local char=Player.Character;local bp=Player:FindFirstChild("Backpack")if not char or not bp then return end;local potion=bp:FindFirstChild("Giant Potion")if not potion then return end;pcall(function()potion.Parent=char;potion:Activate()potion.Parent=bp end)end
+local resetRemote=nil;local instaResetCooldown=false;local GUID="f888ee6e-c86d-46e1-93d7-0639d6635d42"
+local o;o=hookfunction(Instance.new("RemoteEvent").FireServer,newcclosure(function(self,...)if not resetRemote and self.Name:sub(1,3)=="RE/"then resetRemote=self end;return o(self,...)end))
+local function instareset()if instaResetCooldown then return end;if not resetRemote then return end;instaResetCooldown=true;pcall(function()resetRemote:FireServer(GUID,Player,"balloon")end)task.delay(0.5,function()instaResetCooldown=false end)end
+
+SS={
+    W=isMobile and 148 or 160,H=isMobile and 195 or 185,player=Player,teleporting=false,debounce=false,speed=false,
+    minimized=false,dragging=false,dragStart=nil,panelStart=nil,potionState=false,autoTPUnlockState=false,autoTPOnAllowState=false,
+    stealMethod="Walk",semiInstantMode="Semi",selectedItem="Flying Carpet",_scriptStartTime=tick(),_autoFullSwitched=false,
+    BG=Color3.fromRGB(12,12,15),HDR=Color3.fromRGB(6,6,10),BTN=Color3.fromRGB(22,22,28),BTN_HOVER=Color3.fromRGB(35,35,42),
+    _BASES={b1={refVec=Vector3.new(-337,-5,100),finalPos=Vector3.new(-337,-5,103)},b2={refVec=Vector3.new(-335,-5,20),finalPos=Vector3.new(-334.80,-5.04,18.90)}},
+    _RIGHT_BASE=CFrame.new(-371,-6,30),_LEFT_BASE=CFrame.new(-373,-7,83),
+    SSFFlags={GameNetPVHeaderRotationalVelocityZeroCutoffExponent=-5000,LargeReplicatorWrite5=true,LargeReplicatorEnabled9=true,AngularVelociryLimit=360,TimestepArbiterVelocityCriteriaThresholdTwoDt=2147483646,S2PhysicsSenderRate=15000,DisableDPIScale=true,MaxDataPacketPerSend=2147483647,PhysicsSenderMaxBandwidthBps=20000,TimestepArbiterHumanoidLinearVelThreshold=21,MaxMissedWorldStepsRemembered=-2147483648,PlayerHumanoidPropertyUpdateRestrict=true,SimDefaultHumanoidTimestepMultiplier=0,StreamJobNOUVolumeLengthCap=2147483647,DebugSendDistInSteps=-2147483648,GameNetDontSendRedundantNumTimes=1,CheckPVLinearVelocityIntegrateVsDeltaPositionThresholdPercent=1,CheckPVDifferencesForInterpolationMinVelThresholdStudsPerSecHundredth=1,LargeReplicatorSerializeRead3=true,ReplicationFocusNouExtentsSizeCutoffForPauseStuds=2147483647,CheckPVCachedVelThresholdPercent=10,CheckPVDifferencesForInterpolationMinRotVelThresholdRadsPerSecHundredth=1,GameNetDontSendRedundantDeltaPositionMillionth=1,InterpolationFrameVelocityThresholdMillionth=5,StreamJobNOUVolumeCap=2147483647,InterpolationFrameRotVelocityThresholdMillionth=5,CheckPVCachedRotVelThresholdPercent=10,WorldStepMax=30,InterpolationFramePositionThresholdMillionth=5,TimestepArbiterHumanoidTurningVelThreshold=1,SimOwnedNOUCountThresholdMillionth=2147483647,GameNetPVHeaderLinearVelocityZeroCutoffExponent=-5000,NextGenReplicatorEnabledWrite4=true,TimestepArbiterOmegaThou=1073741823,MaxAcceptableUpdateDelay=1,LargeReplicatorSerializeWrite4=true}
+}
+SS.SSSetFFlags=function()for k,v in pairs(SS.SSFFlags)do pcall(function()setfflag(k,tostring(v))end)end end
+_G._FH_CarpetTP=function(targetCF,speedOverride)
+    local chr=Player.Character;local hrp=chr and chr:FindFirstChild("HumanoidRootPart")
+    if not hrp or not targetCF then return end
+    if typeof(targetCF)=="Vector3"then targetCF=CFrame.new(targetCF)end
+    local dist=(hrp.Position-targetCF.Position).Magnitude;local dur=math.max(0.05,dist/(speedOverride or _G._FH_CarpetTP_Speed or 214))
+    local bp=Player:FindFirstChildOfClass("Backpack");local item=(bp and bp:FindFirstChild(SS.selectedItem))or chr:FindFirstChild(SS.selectedItem)
+    local hum=chr:FindFirstChildOfClass("Humanoid")
+    if item and hum and item.Parent~=chr then pcall(function()hum:EquipTool(item)end)end
+    if _fhCarpetActiveTween then pcall(function()_fhCarpetActiveTween:Cancel()end)end
+    local tw=TweenService:Create(hrp,TweenInfo.new(dur,Enum.EasingStyle.Linear),{CFrame=targetCF})_fhCarpetActiveTween=tw;tw:Play()
+end
+SS.SSEquipGrapple=function()
+    local char=Player.Character;local backpack=Player:FindFirstChild("Backpack")
+    if not char or not backpack then return end
+    for _,tool in ipairs(char:GetChildren())do if tool:IsA("Tool")then tool.Parent=backpack end end
+    local item=backpack:FindFirstChild(SS.selectedItem)or char:FindFirstChild(SS.selectedItem)
+    if item then local hum=char:FindFirstChildOfClass("Humanoid")if hum then hum:EquipTool(item)end end
+end
+SS.SSTeleportHRP=function(position)local char=Player.Character or Player.CharacterAdded:Wait()local hrp=char:FindFirstChild("HumanoidRootPart")if not hrp then return end;hrp.Velocity=Vector3.zero;_G._FH_CarpetTP(CFrame.new(position))end
+SS.SSDoTeleport=function()
+    local player=Player;if not player then return end;SS.SSSetFFlags()
+    local char=player.Character;local hum=char and char:FindFirstChild("Humanoid");local hrp=char and char:FindFirstChild("HumanoidRootPart")
+    if not hum or not hrp then return end;SS.semiInstantMode="Semi";local bases=SS._BASES
+    local function __isPrimeMethod()return SS.stealMethod=="Prime"end
+    local function isWalkMode()return SS.stealMethod~="Prime"end
+    local function equipItem()SS.SSEquipGrapple()end
+    local function drinkPotion()if SS.potionState then pcall(_activateGiantPotion)end end
+    local function walkTo(HRP,targetPos,speed,arriveDist,timeout)if not HRP or not HRP.Parent or not targetPos then return end;speed=speed or 180;arriveDist=arriveDist or 6;timeout=timeout or 6;equipItem()local _ctrls;pcall(function()_ctrls=require(player.PlayerScripts:WaitForChild("PlayerModule")):GetControls()end)if _ctrls then pcall(function()_ctrls:Disable()end)end;local start=tick()while HRP and HRP.Parent do local d=targetPos-HRP.Position;local mag=d.Magnitude;if mag<arriveDist then break end;if tick()-start>timeout then break end;local effSpeed=speed;if mag<25 then effSpeed=math.max(60,speed*(mag/25))end;local dir=d.Unit;HRP.Velocity=Vector3.new(dir.X*effSpeed,dir.Y*effSpeed,dir.Z*effSpeed)task.wait()end;if HRP and HRP.Parent then HRP.Velocity=Vector3.new(0,0,0)HRP.CFrame=CFrame.new(targetPos)end;if _ctrls then pcall(function()_ctrls:Enable()end)end end
+    local function canDirectTp(HRP,targetPos)if not HRP or not targetPos then return false end;local origin=HRP.Position;local ignored={player.Character}for _=1,12 do local direction=targetPos-origin;if direction.Magnitude<=0.05 then return true end;local params=RaycastParams.new()params.FilterType=Enum.RaycastFilterType.Blacklist;params.FilterDescendantsInstances=ignored;params.IgnoreWater=true;local result=workspace:Raycast(origin,direction,params)if not result then return true end;local hit=result.Instance;if not hit then return true end;if hit:IsA("BasePart")and not hit.CanCollide then table.insert(ignored,hit)origin=result.Position+direction.Unit*0.1 else return(result.Position-targetPos).Magnitude<=3 end end;return false end
+    local function tpThroughWaypoints(HRP,waypoints)if#waypoints==0 then return end;local startIndex=1;for i=#waypoints,1,-1 do if canDirectTp(HRP,waypoints[i])then startIndex=i;break end end;for i=startIndex,#waypoints do HRP.CFrame=CFrame.new(waypoints[i])if i<#waypoints then task.wait(0.135)end end end
+    local plots=workspace:FindFirstChild("Plots")if not plots then return end;local myName=player.DisplayName;local enemyPlots={}
+    for _,plot in ipairs(plots:GetChildren())do local sign=plot:FindFirstChild("PlotSign");local label=sign and sign:FindFirstChild("SurfaceGui")and sign.SurfaceGui:FindFirstChild("Frame")and sign.SurfaceGui.Frame:FindFirstChild("TextLabel")if label and label.Text~="Empty Base"then local owner=label.Text:gsub("'s Base$",""):gsub("'s base$",""):gsub("%s+$","")if owner~=myName then table.insert(enemyPlots,plot)end end end
+    if#enemyPlots==0 then return end
+    local function getClosestPodium()local best,bestDist=nil,math.huge;for _,plot in ipairs(enemyPlots)do local podiums=plot:FindFirstChild("AnimalPodiums")if not podiums then continue end;for _,pname in ipairs({"1","10"})do local podium=podiums:FindFirstChild(pname)if not podium then continue end;local cm=podium:FindFirstChild("Claim")and podium.Claim:FindFirstChild("Main")if not cm then continue end;local d=(hrp.Position-cm.Position).Magnitude;if d<bestDist then bestDist=d;local spawn=podium:FindFirstChild("Base")and podium.Base:FindFirstChild("Spawn")local pa=spawn and spawn:FindFirstChild("PromptAttachment")local prompt=pa and pa:FindFirstChildOfClass("ProximityPrompt")if prompt then best={plot=plot,podiumName=pname,position=cm.Position,prompt=prompt,promptPos=pa.WorldPosition}end end end end;return best end
+    local item=char:FindFirstChild(SS.selectedItem)or(player.Backpack and player.Backpack:FindFirstChild(SS.selectedItem))
+    local podium=getClosestPodium()if not podium then return end
+    local finalPos;do local dB1=(podium.position-bases.b1.refVec).Magnitude;local dB2=(podium.position-bases.b2.refVec).Magnitude;finalPos=(dB1<dB2)and bases.b1.finalPos or bases.b2.finalPos end
+    if item then pcall(function()hum:EquipTool(item)end)end
+    local netCtx=_FH_StartTrip({plotName=podium.plot.Name,pod=tonumber(podium.podiumName)or podium.podiumName});SS._semiStealCtx=netCtx
+    local function doTpSequence(HRP,fPos,pod)
+        local isAtBase1;do local dB1=(pod.position-bases.b1.refVec).Magnitude;local dB2=(pod.position-bases.b2.refVec).Magnitude;isAtBase1=dB1<dB2 end
+        local redPos=isAtBase1 and Vector3.new(-337,-5,100)or Vector3.new(-335,-5,20)
+        local greenPos=isAtBase1 and Vector3.new(-347.12,-6.67,81.64)or Vector3.new(-349.43,-6.78,37.47)
+        local approachWaypoints=not isAtBase1 and{Vector3.new(-351.49,-6.65,113.72),Vector3.new(-352.54,-6.83,6.66),Vector3.new(-334.80,-5.04,18.90)}or{Vector3.new(-352.54,-6.83,6.66),Vector3.new(-351.49,-6.65,113.72),Vector3.new(-337,-5,103)}
+        local function doApproachPath(HRP_,_pod,_isAtBase1)if isWalkMode()then local startIndex=1;for i=#approachWaypoints,1,-1 do if canDirectTp(HRP_,approachWaypoints[i])then startIndex=i;break end end;for i=startIndex,#approachWaypoints do walkTo(HRP_,approachWaypoints[i],180)end;return end;if _pod and redPos and canDirectTp(HRP_,redPos)then HRP_.CFrame=CFrame.new(redPos)else tpThroughWaypoints(HRP_,approachWaypoints)end end
+        if __isPrimeMethod()then
+            local prompt=pod and pod.prompt;if not prompt or not prompt.Parent then return end;prompt.RequiresLineOfSight=false;prompt.MaxActivationDistance=math.huge;equipItem()
+            HRP.CFrame=isAtBase1 and CFrame.new(-343.08,-6.84,93.20)or CFrame.new(-342.91,-6.81,28.00)task.wait(0.25)
+            HRP.CFrame=isAtBase1 and CFrame.new(-340.16,-7.29,48.82)or CFrame.new(-340.16,-7.29,72.40)task.wait(0.12)
+            HRP.CFrame=isAtBase1 and CFrame.new(-341.26,-7.29,66.95)or CFrame.new(-341.26,-7.29,54.27)task.wait(0.12)
+            HRP.CFrame=isAtBase1 and CFrame.new(-339.93,-7.29,82.14)or CFrame.new(-339.63,-7.29,39.33)task.wait(0.18)
+            local ctx=__FH_v2.startStealHold(prompt,"Prime")
+            HRP.CFrame=isAtBase1 and CFrame.new(-354.04,-7.21,90.42)or CFrame.new(-354.04,-7.21,28.00)task.wait(0.45)
+            HRP.CFrame=isAtBase1 and CFrame.new(-334.60,-5.00,101.30)or CFrame.new(-334.60,-5.00,19.30)
+            if ctx and ctx.holdBeganAt then while tick()-ctx.holdBeganAt<__MIN_HOLD_TIME_v2 do task.wait()end end
+            drinkPotion()equipItem();HRP.CFrame=isAtBase1 and CFrame.new(-351.53,-7.29,83.66)or CFrame.new(-350.62,-7.29,35.91)
+            if ctx then __FH_v2.finishStealHold(ctx)end
+        else
+            local ctx;if pod and pod.prompt and pod.prompt.Parent then pod.prompt.RequiresLineOfSight=false;pod.prompt.MaxActivationDistance=math.huge;ctx=__FH_v2.startStealHold(pod.prompt,"Walk")end
+            if ctx then __FH_v2.waitForStealTime(ctx,0.8)end
+            doApproachPath(HRP,pod,isAtBase1)task.wait(0.25)drinkPotion()equipItem()
+            if pod and pod.prompt and pod.prompt.Parent and ctx then if greenPos then __FH_v2.waitForStealTime(ctx,1.3)HRP.CFrame=CFrame.new(greenPos)end;__FH_v2.finishStealHold(ctx)end
+        end
+    end
+    task.spawn(function()local _ok,_err=pcall(function()doTpSequence(hrp,finalPos,podium)SS._semiStealCtx=nil;task.wait(0.9)end)if not _ok then warn("[Singe311] error: ",_err)end end)
+end
+SS.SSDoSteal=function()SS.SSDoTeleport()end
+SS.SSExecute=function()if SS.debounce then return end;SS.debounce=true;_G._FH_LastV2UseTime=os.clock();task.spawn(function()SS.SSSetFFlags()SS.SSDoTeleport()task.wait(1.2)SS.debounce=false end)end
+
+-- Variables modes
+local espEnabled=false
+local xrayEnabled=false
+local fovEnabled=false
+local fovValue=105
+local giantPotionValue=35
+local saveConfigEnabled=false
+local speedBoostEnabled=false
+
+-- ============================================================
+-- FONCTIONS XRAY
+-- ============================================================
+local BaseXRay = (function()
+    local TRANSPARENCY=0.35;local CHUNK_SIZE=75;local _xrayEnabled=false;local modified={};local modelCache={};local descConn=nil
+    local function isPetOrNPC(part,plotsFolder)local obj=part.Parent;while obj and obj~=plotsFolder and obj~=workspace do if obj:IsA("Model")then local cached=modelCache[obj]if cached==nil then cached=obj:FindFirstChildWhichIsA("Humanoid")~=nil;modelCache[obj]=cached end;if cached then return true end;break end;obj=obj.Parent end;return false end
+    local _xr_orig;local _xr_hooked=false
+    local function _xr_installHook()if _xr_hooked then return end;_xr_hooked=true;pcall(function()if type(hookmetamethod)~="function"then return end;local nc=(type(newcclosure)=="function")and newcclosure or function(f)return f end;local mod=modified;_xr_orig=hookmetamethod(game,"__index",nc(function(self,key)if key=="LocalTransparencyModifier"and mod[self]then return 0 end;return _xr_orig(self,key)end))end)end
+    local function applyPart(part,plotsFolder)if modified[part]then return end;if not part:IsA("BasePart")then return end;if isPetOrNPC(part,plotsFolder)then return end;modified[part]=part.LocalTransparencyModifier;part.LocalTransparencyModifier=TRANSPARENCY end
+    local function chunkedEnable(plotsFolder)local baseParts={}for _,obj in ipairs(plotsFolder:GetDescendants())do if obj:IsA("BasePart")then baseParts[#baseParts+1]=obj end end;local total=#baseParts;if total==0 then return end;coroutine.wrap(function()local i=1;while i<=total do local limit=math.min(i+CHUNK_SIZE-1,total)for j=i,limit do applyPart(baseParts[j],plotsFolder)end;i=limit+1;if i<=total then RunService.Heartbeat:Wait()end end end)()end
+    local function enableXRay()local plotsFolder=workspace:FindFirstChild("Plots")or workspace;_xr_installHook()chunkedEnable(plotsFolder)if descConn then descConn:Disconnect()end;descConn=plotsFolder.DescendantAdded:Connect(function(obj)if _xrayEnabled then applyPart(obj,plotsFolder)end end)end
+    local function disableXRay()if descConn then descConn:Disconnect()descConn=nil end;local snapshot=modified;modified={}modelCache={}local parts={}for part,origLTM in pairs(snapshot)do parts[#parts+1]={part,origLTM}end;local total=#parts;if total==0 then return end;coroutine.wrap(function()local i=1;while i<=total do local limit=math.min(i+CHUNK_SIZE-1,total)for j=i,limit do local entry=parts[j]pcall(function()if entry[1].Parent then entry[1].LocalTransparencyModifier=entry[2]end end)end;i=limit+1;if i<=total then RunService.Heartbeat:Wait()end end end)()end
+    local _camSaved=false;local _origOcclusion=nil;local _origMaxZoom=nil;local _origMinZoom=nil;local _camPollConn=nil
+    local function _applyCamSettings(lplayer)pcall(function()lplayer.DevCameraOcclusionMode=Enum.DevCameraOcclusionMode.Invisicam;lplayer.CameraMaxZoomDistance=400;lplayer.CameraMinZoomDistance=0 end)end
+    local function enableCamThroughWalls()local lplayer=Players.LocalPlayer;if not lplayer then return end;pcall(function()if not _camSaved then _origOcclusion=lplayer.DevCameraOcclusionMode;_origMaxZoom=lplayer.CameraMaxZoomDistance;_origMinZoom=lplayer.CameraMinZoomDistance;_camSaved=true end;_applyCamSettings(lplayer)end)if not _camPollConn then local _pollActive=true;_camPollConn={Disconnect=function()_pollActive=false end}task.spawn(function()while _pollActive do task.wait(0.5)if not _pollActive then break end;if not _xrayEnabled then break end;local lp2=Players.LocalPlayer;if not lp2 then break end;if lp2.DevCameraOcclusionMode~=Enum.DevCameraOcclusionMode.Invisicam or lp2.CameraMaxZoomDistance<400 or lp2.CameraMinZoomDistance>0 then pcall(_applyCamSettings,lp2)end end;_camPollConn=nil end)end end
+    local function disableCamThroughWalls()local lplayer=Players.LocalPlayer;if _camPollConn then _camPollConn:Disconnect()_camPollConn=nil end;if not lplayer or not _camSaved then return end;pcall(function()lplayer.DevCameraOcclusionMode=_origOcclusion;lplayer.CameraMaxZoomDistance=_origMaxZoom;lplayer.CameraMinZoomDistance=_origMinZoom end)_camSaved=false end
+    return {set=function(on)_xrayEnabled=on;if on then enableXRay()enableCamThroughWalls()else disableXRay()disableCamThroughWalls()end end}
+end)()
+function setXrayEnabled(state)xrayEnabled=state;BaseXRay.set(state)end
+
+-- ============================================================
+-- FONCTIONS FOV
+-- ============================================================
+local fovConn=nil
+function enableFOVMode()if fovConn then fovConn:Disconnect()end;fovConn=RunService.RenderStepped:Connect(function()workspace.CurrentCamera.FieldOfView=fovValue end)end
+function disableFOVMode()if fovConn then fovConn:Disconnect()fovConn=nil end;workspace.CurrentCamera.FieldOfView=70 end
+
+-- ============================================================
+-- FONCTIONS SPEED BOOST
+-- ============================================================
+local function getTargetBoostSpeed()if not speedBoostEnabled then return nil end;local isStealing=Player:GetAttribute("Stealing")~=nil;local isGiantPotion=Player:GetAttribute("GiantPotion")~=nil;if isGiantPotion then return math.clamp(giantPotionValue or 34,16,200)end;if isStealing then return math.clamp(27.6,16,200)end;return nil end
+task.spawn(function()while true do task.wait(0.05)local char=Player.Character;local hum=char and char:FindFirstChildOfClass("Humanoid")local hrp=char and char:FindFirstChild("HumanoidRootPart")if hum and hrp then local spd=speedBoostEnabled and getTargetBoostSpeed()or nil;if spd then local moveDir=hum.MoveDirection;local vy=math.clamp(hrp.Velocity.Y,-500,500)if moveDir==Vector3.zero then hrp.Velocity=Vector3.new(0,vy,0)else local dir=moveDir.Unit;hrp.Velocity=Vector3.new(dir.X*spd,vy,dir.Z*spd)end end end end end)
+
+-- ============================================================
+-- SAUVEGARDE
+-- ============================================================
+local HttpService=game:GetService("HttpService")local SaveFileName="Singe311_Save.json"
+local function loadConfig()local success,data=pcall(function()if not isfile or not readfile then return nil end;if not isfile(SaveFileName)then return nil end;local raw=readfile(SaveFileName)return HttpService:JSONDecode(raw)end)if success and data then return data end;return nil end
+local function saveConfig()pcall(function()if not writefile then return end;local data={ESP_Enabled=espEnabled,XRAY_Enabled=xrayEnabled,FOV_Enabled=fovEnabled,FOV_Value=fovValue,GiantPotion_Value=giantPotionValue,SaveConfig_Enabled=saveConfigEnabled,SpeedBoost_Enabled=speedBoostEnabled,Potion_Enabled=SS.potionState,AutoTPUnlock_Enabled=SS.autoTPUnlockState,AutoTPAllow_Enabled=SS.autoTPOnAllowState,StealMethod=SS.stealMethod,SelectedItem=SS.selectedItem}local json=HttpService:JSONEncode(data)writefile(SaveFileName,json)end)end
+local function applyConfig(config)if not config then return end;if config.ESP_Enabled~=nil then espEnabled=config.ESP_Enabled end;if config.XRAY_Enabled~=nil then xrayEnabled=config.XRAY_Enabled;if xrayEnabled then BaseXRay.set(true)end end;if config.FOV_Enabled~=nil then fovEnabled=config.FOV_Enabled;if fovEnabled then enableFOVMode()end end;if config.FOV_Value then fovValue=config.FOV_Value end;if config.GiantPotion_Value then giantPotionValue=config.GiantPotion_Value end;if config.SaveConfig_Enabled~=nil then saveConfigEnabled=config.SaveConfig_Enabled end;if config.SpeedBoost_Enabled~=nil then speedBoostEnabled=config.SpeedBoost_Enabled end;if config.Potion_Enabled~=nil then SS.potionState=config.Potion_Enabled end;if config.AutoTPUnlock_Enabled~=nil then SS.autoTPUnlockState=config.AutoTPUnlock_Enabled end;if config.AutoTPAllow_Enabled~=nil then SS.autoTPOnAllowState=config.AutoTPAllow_Enabled end;if config.StealMethod then SS.stealMethod=config.StealMethod end;if config.SelectedItem then SS.selectedItem=config.SelectedItem end end
+local savedConfig=loadConfig()
+
+-- ============================================================
+-- GUI (TOUT BLEU UNI)
+-- ============================================================
+local BLANC=Color3.fromRGB(255,255,255)
+local BLEU_FOND=Color3.fromRGB(10,20,50)
+local BLEU_BOUTON=Color3.fromRGB(0,75,220)
+local BLEU_HOVER=Color3.fromRGB(0,110,255)
+local BLEU_BORDURE=Color3.fromRGB(0,75,220)
+local BLEU_HEADER=Color3.fromRGB(0,40,120)
+local BLEU_TRACK=Color3.fromRGB(0,75,220)
+local GRIS_TRACK=Color3.fromRGB(30,30,50)
+local KNOB_ON=Color3.fromRGB(255,255,255)
+local KNOB_OFF=Color3.fromRGB(100,120,180)
+
+local GUI=Instance.new("ScreenGui")GUI.Name="Singe311"GUI.ZIndexBehavior=Enum.ZIndexBehavior.Sibling;GUI.ResetOnSpawn=false;GUI.IgnoreGuiInset=true
+pcall(function()GUI.Parent=game:GetService("CoreGui")end)if not GUI.Parent then GUI.Parent=Player:WaitForChild("PlayerGui")end
+local function ShowToggleNotification(msg,state)local txt=Instance.new("TextLabel")txt.Text=msg;txt.TextSize=14;txt.Font=Enum.Font.GothamBold;txt.TextColor3=state and Color3.fromRGB(100,255,100)or BLANC;txt.BackgroundTransparency=1;txt.Size=UDim2.new(0,300,0,30);txt.Position=UDim2.new(0.5,-150,0,20)txt.ZIndex=999;txt.Parent=GUI;task.delay(1.5,function()if txt and txt.Parent then txt:Destroy()end end)end
+local M=TweenInfo.new(0.25,Enum.EasingStyle.Quad,Enum.EasingDirection.Out)
+local F=TweenInfo.new(0.15,Enum.EasingStyle.Quad,Enum.EasingDirection.Out)
+local Tween=function(o,i,p)TweenService:Create(o,i,p):Play()end
+local Corner=function(p,r)local c=Instance.new("UICorner")c.CornerRadius=UDim.new(0,r or 8)c.Parent=p;return c end
+local Stroke=function(p,col,th)local s=Instance.new("UIStroke")s.Color=col or BLEU_BORDURE;s.Thickness=th or 1;s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border;s.Parent=p;return s end
+local Padding=function(p,t,b,l,r)local u=Instance.new("UIPadding")u.PaddingTop=UDim.new(0,t or 0)u.PaddingBottom=UDim.new(0,b or 0)u.PaddingLeft=UDim.new(0,l or 0)u.PaddingRight=UDim.new(0,r or 0)u.Parent=p end
+
+SS.SSBorderFrame=Instance.new("Frame")SS.SSBorderFrame.Size=UDim2.new(0,SS.W+4,0,SS.H+4)SS.SSBorderFrame.Position=UDim2.new(0.5,-(SS.W+4)/2,0.5,-(SS.H+4)/2)SS.SSBorderFrame.BackgroundColor3=BLEU_BORDURE;SS.SSBorderFrame.BackgroundTransparency=0.5;SS.SSBorderFrame.BorderSizePixel=0;SS.SSBorderFrame.ZIndex=18;SS.SSBorderFrame.Visible=true;SS.SSBorderFrame.Parent=GUI;Corner(SS.SSBorderFrame,12)
+SS.SSWin=Instance.new("Frame")SS.SSWin.Size=UDim2.new(0,SS.W,0,SS.H)SS.SSWin.Position=UDim2.new(0.5,-SS.W/2,0.5,-SS.H/2)SS.SSWin.BackgroundColor3=Color3.fromRGB(12,12,25);SS.SSWin.BackgroundTransparency=0.2;SS.SSWin.BorderSizePixel=0;SS.SSWin.ZIndex=19;SS.SSWin.Visible=true;SS.SSWin.ClipsDescendants=true;SS.SSWin.Parent=GUI;Corner(SS.SSWin,10)
+SS.SSHdr=Instance.new("Frame")SS.SSHdr.Size=UDim2.new(1,0,0,28)SS.SSHdr.BackgroundColor3=BLEU_HEADER;SS.SSHdr.BackgroundTransparency=0.15;SS.SSHdr.BorderSizePixel=0;SS.SSHdr.ZIndex=20;SS.SSHdr.Parent=SS.SSWin;Corner(SS.SSHdr,10)
+SS.SSTitle=Instance.new("TextLabel")SS.SSTitle.Size=UDim2.new(1,-80,1,0)SS.SSTitle.Position=UDim2.new(0,14,0,0)SS.SSTitle.BackgroundTransparency=1;SS.SSTitle.Text="Singe311"SS.SSTitle.TextSize=13;SS.SSTitle.Font=Enum.Font.GothamBold;SS.SSTitle.TextColor3=BLANC;SS.SSTitle.TextXAlignment=Enum.TextXAlignment.Center;SS.SSTitle.TextYAlignment=Enum.TextYAlignment.Center;SS.SSTitle.ZIndex=22;SS.SSTitle.Parent=SS.SSHdr
+SS.SSMinBtn=Instance.new("TextButton")SS.SSMinBtn.Size=UDim2.new(0,22,0,22)SS.SSMinBtn.Position=UDim2.new(1,-26,0.5,-11)SS.SSMinBtn.BackgroundColor3=BLEU_FOND;SS.SSMinBtn.BorderSizePixel=0;SS.SSMinBtn.Text="-"SS.SSMinBtn.TextSize=16;SS.SSMinBtn.Font=Enum.Font.GothamBold;SS.SSMinBtn.TextColor3=BLANC;SS.SSMinBtn.TextXAlignment=Enum.TextXAlignment.Center;SS.SSMinBtn.ZIndex=25;SS.SSMinBtn.Parent=SS.SSHdr;Corner(SS.SSMinBtn,6)Stroke(SS.SSMinBtn,BLEU_BORDURE,1)
+SS.SSLockBtn=Instance.new("TextButton")SS.SSLockBtn.Size=UDim2.new(0,22,0,22)SS.SSLockBtn.Position=UDim2.new(1,-50,0.5,-11)SS.SSLockBtn.BackgroundColor3=BLEU_FOND;SS.SSLockBtn.BorderSizePixel=0;SS.SSLockBtn.Text="🔓"SS.SSLockBtn.TextSize=12;SS.SSLockBtn.Font=Enum.Font.GothamBold;SS.SSLockBtn.TextColor3=BLANC;SS.SSLockBtn.TextXAlignment=Enum.TextXAlignment.Center;SS.SSLockBtn.ZIndex=25;SS.SSLockBtn.Parent=SS.SSHdr;Corner(SS.SSLockBtn,6)Stroke(SS.SSLockBtn,BLEU_BORDURE,1)
+local guiLocked=false
+SS.SSLockBtn.MouseButton1Click:Connect(function()guiLocked=not guiLocked;SS.SSLockBtn.Text=guiLocked and"🔒"or"🔓";if guiLocked then Tween(SS.SSLockBtn,F,{BackgroundColor3=Color3.fromRGB(120,30,30)})else Tween(SS.SSLockBtn,F,{BackgroundColor3=BLEU_FOND})end end)
+SS.SSSettingsBtn=Instance.new("TextButton")SS.SSSettingsBtn.Size=UDim2.new(0,22,0,22)SS.SSSettingsBtn.Position=UDim2.new(1,-74,0.5,-11)SS.SSSettingsBtn.BackgroundColor3=BLEU_FOND;SS.SSSettingsBtn.BorderSizePixel=0;SS.SSSettingsBtn.Text="⚙"SS.SSSettingsBtn.TextSize=12;SS.SSSettingsBtn.Font=Enum.Font.GothamBold;SS.SSSettingsBtn.TextColor3=BLANC;SS.SSSettingsBtn.TextXAlignment=Enum.TextXAlignment.Center;SS.SSSettingsBtn.ZIndex=25;SS.SSSettingsBtn.Parent=SS.SSHdr;Corner(SS.SSSettingsBtn,6)Stroke(SS.SSSettingsBtn,BLEU_BORDURE,1)
+SS.SSContent=Instance.new("Frame")SS.SSContent.Size=UDim2.new(1,0,1,-28)SS.SSContent.Position=UDim2.new(0,0,0,30)SS.SSContent.BackgroundTransparency=1;SS.SSContent.ZIndex=19;SS.SSContent.Parent=SS.SSWin
+SS.SSLayout=Instance.new("UIListLayout")SS.SSLayout.FillDirection=Enum.FillDirection.Vertical;SS.SSLayout.HorizontalAlignment=Enum.HorizontalAlignment.Center;SS.SSLayout.Padding=UDim.new(0,5)SS.SSLayout.Parent=SS.SSContent;Padding(SS.SSContent,6,6,10,10)
+
+-- Fonction bouton standard (BLEU UNI)
+SS.SSMakeBtn=function(labelText,fireFn)local btn=Instance.new("TextButton")btn.Size=UDim2.new(1,0,0,isMobile and 28 or 26)btn.BackgroundColor3=BLEU_FOND;btn.BorderSizePixel=0;btn.Text=labelText;btn.TextSize=isMobile and 11 or 12;btn.Font=Enum.Font.GothamBold;btn.TextColor3=BLANC;btn.TextXAlignment=Enum.TextXAlignment.Center;btn.TextYAlignment=Enum.TextYAlignment.Center;btn.ZIndex=20;btn.Parent=SS.SSContent;Corner(btn,7)Stroke(btn,BLEU_BORDURE,1)btn.MouseEnter:Connect(function()Tween(btn,F,{BackgroundColor3=BLEU_HOVER})end)btn.MouseLeave:Connect(function()Tween(btn,F,{BackgroundColor3=BLEU_FOND})end)btn.MouseButton1Click:Connect(function()fireFn()end)return btn end
+
+-- Giant Potion Toggle
+SS.SSPotionRow=Instance.new("Frame")SS.SSPotionRow.Size=UDim2.new(1,0,0,isMobile and 28 or 26)SS.SSPotionRow.BackgroundColor3=BLEU_FOND;SS.SSPotionRow.BorderSizePixel=0;SS.SSPotionRow.ZIndex=20;SS.SSPotionRow.Parent=SS.SSContent;Corner(SS.SSPotionRow,7)Stroke(SS.SSPotionRow,BLEU_BORDURE,1)
+local lbl=Instance.new("TextLabel")lbl.Text="Giant Potion"lbl.TextSize=isMobile and 11 or 12;lbl.Font=Enum.Font.GothamMedium;lbl.TextColor3=BLANC;lbl.BackgroundTransparency=1;lbl.TextXAlignment=Enum.TextXAlignment.Left;lbl.TextYAlignment=Enum.TextYAlignment.Center;lbl.Size=UDim2.new(1,-60,1,0);lbl.Position=UDim2.new(0,12,0,0);lbl.ZIndex=21;lbl.Parent=SS.SSPotionRow
+SS.SSPotionTrack=Instance.new("Frame")SS.SSPotionTrack.Size=UDim2.new(0,30,0,16)SS.SSPotionTrack.Position=UDim2.new(1,-38,0.5,-8)SS.SSPotionTrack.BackgroundColor3=GRIS_TRACK;SS.SSPotionTrack.BorderSizePixel=0;SS.SSPotionTrack.ZIndex=21;SS.SSPotionTrack.Parent=SS.SSPotionRow;Corner(SS.SSPotionTrack,8)SS.SSPotionTStroke=Stroke(SS.SSPotionTrack,BLEU_BORDURE,1)
+SS.SSPotionKnob=Instance.new("Frame")SS.SSPotionKnob.Size=UDim2.new(0,12,0,12)SS.SSPotionKnob.Position=UDim2.new(0,2,0.5,-6)SS.SSPotionKnob.BackgroundColor3=KNOB_OFF;SS.SSPotionKnob.BorderSizePixel=0;SS.SSPotionKnob.ZIndex=22;SS.SSPotionKnob.Parent=SS.SSPotionTrack;Corner(SS.SSPotionKnob,6)
+SS.SSPotionBtn=Instance.new("TextButton")SS.SSPotionBtn.Size=UDim2.new(1,0,1,0)SS.SSPotionBtn.BackgroundTransparency=1;SS.SSPotionBtn.Text="";SS.SSPotionBtn.ZIndex=24;SS.SSPotionBtn.Parent=SS.SSPotionRow
+SS.SSPotionBtn.MouseButton1Click:Connect(function()
+    SS.potionState=not SS.potionState
+    if SS.potionState then Tween(SS.SSPotionKnob,M,{Position=UDim2.new(0,16,0.5,-6),BackgroundColor3=KNOB_ON})Tween(SS.SSPotionTrack,M,{BackgroundColor3=BLEU_TRACK})Tween(SS.SSPotionTStroke,M,{Color=BLEU_TRACK})
+    else Tween(SS.SSPotionKnob,M,{Position=UDim2.new(0,2,0.5,-6),BackgroundColor3=KNOB_OFF})Tween(SS.SSPotionTrack,M,{BackgroundColor3=GRIS_TRACK})Tween(SS.SSPotionTStroke,M,{Color=BLEU_BORDURE})end
+    if saveConfigEnabled then saveConfig()end
+end)
+
+-- Method Button (BLEU UNI)
+SS.SSMethodRow=Instance.new("Frame")SS.SSMethodRow.Size=UDim2.new(1,0,0,isMobile and 28 or 26)SS.SSMethodRow.BackgroundColor3=BLEU_FOND;SS.SSMethodRow.BorderSizePixel=0;SS.SSMethodRow.ZIndex=20;SS.SSMethodRow.Parent=SS.SSContent;Corner(SS.SSMethodRow,7)Stroke(SS.SSMethodRow,BLEU_BORDURE,1)
+SS.SSMethodBtn=Instance.new("TextButton")SS.SSMethodBtn.Size=UDim2.new(1,0,1,0)SS.SSMethodBtn.BackgroundColor3=BLEU_BOUTON;SS.SSMethodBtn.BorderSizePixel=0;SS.SSMethodBtn.Text=SS.stealMethod;SS.SSMethodBtn.TextSize=isMobile and 11 or 12;SS.SSMethodBtn.Font=Enum.Font.GothamBold;SS.SSMethodBtn.TextColor3=BLANC;SS.SSMethodBtn.TextXAlignment=Enum.TextXAlignment.Center;SS.SSMethodBtn.TextYAlignment=Enum.TextYAlignment.Center;SS.SSMethodBtn.AutoButtonColor=false;SS.SSMethodBtn.ZIndex=22;SS.SSMethodBtn.Parent=SS.SSMethodRow;Corner(SS.SSMethodBtn,7)
+SS.SSMethodBtn.MouseButton1Click:Connect(function()SS.stealMethod=(SS.stealMethod=="Walk")and"Prime"or"Walk"SS.SSMethodBtn.Text=SS.stealMethod;if saveConfigEnabled then saveConfig()end end)
+
+-- Teleport + Activate (BLEU UNI)
+SS.SSTeleportBtn=SS.SSMakeBtn("Teleport",function()SS.SSDoSteal()end)
+SS.SSActivateBtn=SS.SSMakeBtn("Activate",function()SS.SSSetFFlags()ShowToggleNotification("FFlags Applied!",true)task.spawn(function()instareset()end)end)
+
+-- ============================================================
+-- AP ESP
+-- ============================================================
+local EF=Instance.new("Folder",workspace)EF.Name="APESP_Effects"
+local function cl(p)local hl=EF:FindFirstChild(p.Name.."_HL")if hl then hl:Destroy()end;if p.Character then local h=p.Character:FindFirstChild("Head")if h then local t=h:FindFirstChild("AdminTag")if t then t:Destroy()end end end end
+local function gh(p)local hl=EF:FindFirstChild(p.Name.."_HL")if not hl then hl=Instance.new("Highlight")hl.Name=p.Name.."_HL"hl.FillTransparency=0.5;hl.OutlineTransparency=0;hl.Parent=EF end;return hl end
+task.spawn(function()while true do RunService.RenderStepped:Wait()if espEnabled then for _,p in ipairs(Players:GetPlayers())do if p~=Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart")and p.Character:FindFirstChild("Head")then local isAd=p:GetAttribute("AdminCommands")==true;local hl=gh(p)if hl.Adornee~=p.Character then hl.Adornee=p.Character end;local tc=isAd and Color3.fromRGB(255,0,0)or Color3.fromRGB(0,255,0)if hl.FillColor~=tc then hl.FillColor=tc;hl.OutlineColor=tc end;hl.Enabled=true;local hd=p.Character.Head;local tg=hd:FindFirstChild("AdminTag")or Instance.new("BillboardGui",hd)tg.Name="AdminTag"tg.Size=UDim2.new(0,isMobile and 120 or 160,0,isMobile and 40 or 50)tg.StudsOffset=Vector3.new(0,2.5,0)tg.AlwaysOnTop=true;local tx=tg:FindFirstChild("TextLabel")or Instance.new("TextLabel",tg)tx.Size=UDim2.new(1,0,1,0)tx.BackgroundTransparency=1;tx.Font=Enum.Font.GothamBlack;tx.TextSize=isMobile and 18 or 25;local hf=(p.Backpack:FindFirstChild("Flash Teleport")~=nil)or(p.Character:FindFirstChild("Flash Teleport")~=nil)tx.Text="AP"..(hf and" ⚡️"or"")tx.TextColor3=isAd and Color3.fromRGB(0,255,0)or Color3.fromRGB(255,0,0)else cl(p)end end end end end)
+Players.PlayerRemoving:Connect(cl)
+
+-- ============================================================
+-- SETTINGS PANEL
+-- ============================================================
+local settingsPanel=Instance.new("Frame")settingsPanel.Size=UDim2.new(1,0,1,-28)settingsPanel.Position=UDim2.new(0,0,0,30)settingsPanel.BackgroundColor3=Color3.fromRGB(12,12,25);settingsPanel.BackgroundTransparency=0.05;settingsPanel.BorderSizePixel=0;settingsPanel.ZIndex=30;settingsPanel.Visible=false;settingsPanel.Parent=SS.SSWin;Corner(settingsPanel,10)
+local setScroll=Instance.new("ScrollingFrame")setScroll.Size=UDim2.new(1,-8,1,-4)setScroll.Position=UDim2.new(0,4,0,2)setScroll.BackgroundTransparency=1;setScroll.BorderSizePixel=0;setScroll.ScrollBarThickness=3;setScroll.ScrollBarImageColor3=BLEU_BORDURE;setScroll.ZIndex=31;setScroll.Parent=settingsPanel
+local setLayout=Instance.new("UIListLayout")setLayout.Padding=UDim.new(0,5)setLayout.HorizontalAlignment=Enum.HorizontalAlignment.Center;setLayout.Parent=setScroll
+local function updateCanvas()local count=0;for _,child in ipairs(setScroll:GetChildren())do if child:IsA("Frame")or child:IsA("TextLabel")then count=count+1 end end;setScroll.CanvasSize=UDim2.new(0,0,0,(count*33)+5)end
+SS.SSSettingsBtn.MouseButton1Click:Connect(function()
+    if SS.minimized then SS.minimized=false;SS.SSTeleportBtn.Parent=SS.SSContent;SS.SSTeleportBtn.Size=UDim2.new(1,0,0,isMobile and 28 or 26)SS.SSTeleportBtn.Position=UDim2.new(0,0,0,0)SS.SSContent.Visible=false;SS.SSMinBtn.Text="-";Tween(SS.SSWin,M,{Size=UDim2.new(0,SS.W,0,SS.H)})Tween(SS.SSBorderFrame,M,{Size=UDim2.new(0,SS.W+4,0,SS.H+4)})task.delay(M.Time,function()SS.SSWin.ClipsDescendants=true end)end
+    settingsPanel.Visible=not settingsPanel.Visible;SS.SSContent.Visible=not settingsPanel.Visible;if settingsPanel.Visible then task.delay(0.2,updateCanvas)end
+end)
+local function createSettingsToggle(parent,labelText,initialState,onToggle)
+    local row=Instance.new("Frame")row.Size=UDim2.new(1,-4,0,28)row.BackgroundColor3=BLEU_FOND;row.BorderSizePixel=0;row.ZIndex=32;row.Parent=parent;Corner(row,7)Stroke(row,BLEU_BORDURE,1)
+    local lbl=Instance.new("TextLabel")lbl.Text=labelText;lbl.TextSize=11;lbl.Font=Enum.Font.GothamMedium;lbl.TextColor3=BLANC;lbl.BackgroundTransparency=1;lbl.TextXAlignment=Enum.TextXAlignment.Left;lbl.TextYAlignment=Enum.TextYAlignment.Center;lbl.Size=UDim2.new(1,-60,1,0);lbl.Position=UDim2.new(0,9,0,0);lbl.ZIndex=33;lbl.Parent=row
+    local track=Instance.new("Frame")track.Size=UDim2.new(0,30,0,16)track.Position=UDim2.new(1,-38,0.5,-8)track.BackgroundColor3=initialState and BLEU_TRACK or GRIS_TRACK;track.BorderSizePixel=0;track.ZIndex=33;track.Parent=row;Corner(track,8)local tStroke=Stroke(track,BLEU_BORDURE,1)
+    local knob=Instance.new("Frame")knob.Size=UDim2.new(0,12,0,12)knob.Position=UDim2.new(0,initialState and 16 or 2,0.5,-6)knob.BackgroundColor3=initialState and KNOB_ON or KNOB_OFF;knob.BorderSizePixel=0;knob.ZIndex=34;knob.Parent=track;Corner(knob,6)
+    local active=initialState
+    local btn=Instance.new("TextButton")btn.Size=UDim2.new(1,0,1,0)btn.BackgroundTransparency=1;btn.Text="";btn.ZIndex=35;btn.Parent=row
+    btn.MouseButton1Click:Connect(function()
+        active=not active
+        if active then Tween(knob,M,{Position=UDim2.new(0,16,0.5,-6),BackgroundColor3=KNOB_ON})Tween(track,M,{BackgroundColor3=BLEU_TRACK})Tween(tStroke,M,{Color=BLEU_TRACK})
+        else Tween(knob,M,{Position=UDim2.new(0,2,0.5,-6),BackgroundColor3=KNOB_OFF})Tween(track,M,{BackgroundColor3=GRIS_TRACK})Tween(tStroke,M,{Color=BLEU_BORDURE})end
+        onToggle(active)
+    end)
+    return active
+end
+
+createSettingsToggle(setScroll,"Auto TP on Allow",SS.autoTPOnAllowState,function(state)SS.autoTPOnAllowState=state;if saveConfigEnabled then saveConfig()end end)
+createSettingsToggle(setScroll,"Auto TP Unlock",SS.autoTPUnlockState,function(state)SS.autoTPUnlockState=state;if saveConfigEnabled then saveConfig()end end)
+createSettingsToggle(setScroll,"XRAY",xrayEnabled,function(state)setXrayEnabled(state)if saveConfigEnabled then saveConfig()end end)
+createSettingsToggle(setScroll,"AP ESP",espEnabled,function(state)espEnabled=state;if not state then for _,p in ipairs(Players:GetPlayers())do if EF then local hl=EF:FindFirstChild(p.Name.."_HL")if hl then hl:Destroy()end end end end;if saveConfigEnabled then saveConfig()end end)
+createSettingsToggle(setScroll,"FOV",fovEnabled,function(state)fovEnabled=state;if fovEnabled then enableFOVMode()else disableFOVMode()end;if saveConfigEnabled then saveConfig()end end)
+local fovPctRow=Instance.new("Frame")fovPctRow.Size=UDim2.new(1,-4,0,28)fovPctRow.BackgroundColor3=BLEU_FOND;fovPctRow.BorderSizePixel=0;fovPctRow.ZIndex=32;fovPctRow.Parent=setScroll;Corner(fovPctRow,7)Stroke(fovPctRow,BLEU_BORDURE,1)
+local fovPctLabel=Instance.new("TextLabel")fovPctLabel.Text="FOV %"fovPctLabel.TextSize=11;fovPctLabel.Font=Enum.Font.GothamMedium;fovPctLabel.TextColor3=BLANC;fovPctLabel.BackgroundTransparency=1;fovPctLabel.TextXAlignment=Enum.TextXAlignment.Left;fovPctLabel.TextYAlignment=Enum.TextYAlignment.Center;fovPctLabel.Size=UDim2.new(1,-60,1,0);fovPctLabel.Position=UDim2.new(0,9,0,0);fovPctLabel.ZIndex=33;fovPctLabel.Parent=fovPctRow
+local fovPctInput=Instance.new("TextBox")fovPctInput.Size=UDim2.new(0,40,0,16)fovPctInput.Position=UDim2.new(1,-48,0.5,-8)fovPctInput.BackgroundColor3=BLEU_FOND;fovPctInput.BackgroundTransparency=0.2;fovPctInput.BorderSizePixel=0;fovPctInput.Text=tostring(fovValue);fovPctInput.TextColor3=BLANC;fovPctInput.Font=Enum.Font.GothamBold;fovPctInput.TextSize=10;fovPctInput.TextXAlignment=Enum.TextXAlignment.Center;fovPctInput.ClearTextOnFocus=false;fovPctInput.ZIndex=33;fovPctInput.Parent=fovPctRow;Corner(fovPctInput,4);Stroke(fovPctInput,BLEU_BORDURE,1)
+fovPctInput.FocusLost:Connect(function()local val=tonumber(fovPctInput.Text)if val then fovValue=math.clamp(math.floor(val),30,170)fovPctInput.Text=tostring(fovValue)if fovEnabled then workspace.CurrentCamera.FieldOfView=fovValue end;if saveConfigEnabled then saveConfig()end else fovPctInput.Text=tostring(fovValue)end end)
+createSettingsToggle(setScroll,"Speed Boost",speedBoostEnabled,function(state)speedBoostEnabled=state;if saveConfigEnabled then saveConfig()end end)
+local giantPctRow=Instance.new("Frame")giantPctRow.Size=UDim2.new(1,-4,0,28)giantPctRow.BackgroundColor3=BLEU_FOND;giantPctRow.BorderSizePixel=0;giantPctRow.ZIndex=32;giantPctRow.Parent=setScroll;Corner(giantPctRow,7)Stroke(giantPctRow,BLEU_BORDURE,1)
+local giantPctLabel=Instance.new("TextLabel")giantPctLabel.Text="Speed Potion %"giantPctLabel.TextSize=11;giantPctLabel.Font=Enum.Font.GothamMedium;giantPctLabel.TextColor3=BLANC;giantPctLabel.BackgroundTransparency=1;giantPctLabel.TextXAlignment=Enum.TextXAlignment.Left;giantPctLabel.TextYAlignment=Enum.TextYAlignment.Center;giantPctLabel.Size=UDim2.new(1,-60,1,0);giantPctLabel.Position=UDim2.new(0,9,0,0);giantPctLabel.ZIndex=33;giantPctLabel.Parent=giantPctRow
+local giantPctInput=Instance.new("TextBox")giantPctInput.Size=UDim2.new(0,40,0,16)giantPctInput.Position=UDim2.new(1,-48,0.5,-8)giantPctInput.BackgroundColor3=BLEU_FOND;giantPctInput.BackgroundTransparency=0.2;giantPctInput.BorderSizePixel=0;giantPctInput.Text=tostring(giantPotionValue);giantPctInput.TextColor3=BLANC;giantPctInput.Font=Enum.Font.GothamBold;giantPctInput.TextSize=10;giantPctInput.TextXAlignment=Enum.TextXAlignment.Center;giantPctInput.ClearTextOnFocus=false;giantPctInput.ZIndex=33;giantPctInput.Parent=giantPctRow;Corner(giantPctInput,4);Stroke(giantPctInput,BLEU_BORDURE,1)
+giantPctInput.FocusLost:Connect(function()local val=tonumber(giantPctInput.Text)if val then giantPotionValue=math.clamp(math.floor(val),1,100)giantPctInput.Text=tostring(giantPotionValue)if saveConfigEnabled then saveConfig()end else giantPctInput.Text=tostring(giantPotionValue)end end)
+local ITEMS={"Flying Carpet","Witch's Broom","Santa's Sleigh","Waverider"}
+local itemRow=Instance.new("Frame")itemRow.Size=UDim2.new(1,-4,0,28)itemRow.BackgroundColor3=BLEU_FOND;itemRow.BorderSizePixel=0;itemRow.ZIndex=32;itemRow.Parent=setScroll;Corner(itemRow,7)Stroke(itemRow,BLEU_BORDURE,1)
+local itemLbl=Instance.new("TextLabel")itemLbl.Text="Item"itemLbl.TextSize=11;itemLbl.Font=Enum.Font.GothamMedium;itemLbl.TextColor3=BLANC;itemLbl.BackgroundTransparency=1;itemLbl.TextXAlignment=Enum.TextXAlignment.Left;itemLbl.TextYAlignment=Enum.TextYAlignment.Center;itemLbl.Size=UDim2.new(1,-60,1,0);itemLbl.Position=UDim2.new(0,9,0,0);itemLbl.ZIndex=33;itemLbl.Parent=itemRow
+local itemSelectBtn=Instance.new("TextButton")itemSelectBtn.Size=UDim2.new(0,48,0,16)itemSelectBtn.Position=UDim2.new(1,-56,0.5,-8)itemSelectBtn.BackgroundColor3=BLEU_BOUTON;itemSelectBtn.BorderSizePixel=0;itemSelectBtn.Text=SS.selectedItem;itemSelectBtn.TextSize=8;itemSelectBtn.Font=Enum.Font.GothamBold;itemSelectBtn.TextColor3=BLANC;itemSelectBtn.TextXAlignment=Enum.TextXAlignment.Center;itemSelectBtn.TextYAlignment=Enum.TextYAlignment.Center;itemSelectBtn.AutoButtonColor=false;itemSelectBtn.ZIndex=34;itemSelectBtn.Parent=itemRow;Corner(itemSelectBtn,4)
+itemSelectBtn.MouseButton1Click:Connect(function()local ci=1;for i,itm in ipairs(ITEMS)do if itm==SS.selectedItem then ci=i;break end end;ci=ci%#ITEMS+1;SS.selectedItem=ITEMS[ci]itemSelectBtn.Text=SS.selectedItem;if saveConfigEnabled then saveConfig()end end)
+createSettingsToggle(setScroll,"Save Config",saveConfigEnabled,function(state)saveConfigEnabled=state;if state then saveConfig()end end)
+task.delay(0.3,updateCanvas)
+if savedConfig then applyConfig(savedConfig)SS.SSMethodBtn.Text=SS.stealMethod;itemSelectBtn.Text=SS.selectedItem;fovPctInput.Text=tostring(fovValue)giantPctInput.Text=tostring(giantPotionValue)end
+
+-- Minimize
+SS.SSMinBtn.MouseButton1Click:Connect(function()
+    SS.minimized=not SS.minimized
+    if SS.minimized then SS.SSWin.ClipsDescendants=false;SS.SSContent.Visible=false;settingsPanel.Visible=false;SS.SSTeleportBtn.Parent=SS.SSWin;SS.SSTeleportBtn.Visible=true;SS.SSTeleportBtn.Size=UDim2.new(1,-16,0,36)SS.SSTeleportBtn.Position=UDim2.new(0,8,0,28);Tween(SS.SSWin,M,{Size=UDim2.new(0,SS.W,0,70)})Tween(SS.SSBorderFrame,M,{Size=UDim2.new(0,SS.W+4,0,74)})SS.SSMinBtn.Text="+"
+    else SS.SSTeleportBtn.Parent=SS.SSContent;SS.SSTeleportBtn.Size=UDim2.new(1,0,0,isMobile and 28 or 26)SS.SSTeleportBtn.Position=UDim2.new(0,0,0,0)SS.SSContent.Visible=true;Tween(SS.SSWin,M,{Size=UDim2.new(0,SS.W,0,SS.H)})Tween(SS.SSBorderFrame,M,{Size=UDim2.new(0,SS.W+4,0,SS.H+4)})SS.SSMinBtn.Text="-";task.delay(M.Time,function()SS.SSWin.ClipsDescendants=true end)end
+end)
+
+-- Drag
+SS.SSTitle.InputBegan:Connect(function(inp)if guiLocked then return end;if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then SS.dragging=true;SS.dragStart=inp.Position;SS.panelStart=SS.SSWin.Position end end)
+SS.SSTitle.InputEnded:Connect(function(inp)if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then SS.dragging=false end end)
+UserInputService.InputChanged:Connect(function(inp)if not SS.dragging then return end;if inp.UserInputType==Enum.UserInputType.MouseMovement or inp.UserInputType==Enum.UserInputType.Touch then local d=inp.Position-SS.dragStart;local np=UDim2.new(SS.panelStart.X.Scale,SS.panelStart.X.Offset+d.X,SS.panelStart.Y.Scale,SS.panelStart.Y.Offset+d.Y)SS.SSWin.Position=np;SS.SSBorderFrame.Position=UDim2.new(np.X.Scale,np.X.Offset-2,np.Y.Scale,np.Y.Offset-2)end end)
+
+-- Auto TP Unlock Listener
+local _autoTPUnlockDebounce=false
+for _,obj in ipairs(ReplicatedStorage:GetDescendants())do if obj:IsA("RemoteEvent")then obj.OnClientEvent:Connect(function(...)if SS.autoTPUnlockState and not _autoTPUnlockDebounce then for _,arg in ipairs({...})do if type(arg)=="string"and string.find(string.lower(arg),"you successfully broke",1,true)then _autoTPUnlockDebounce=true;task.spawn(function()task.wait(0.20)SS.SSExecute()task.wait(1.5)_autoTPUnlockDebounce=false end)break end end end end)end end
+
+-- Auto TP on Allow Watcher
+do local _allowTPDebounce=false
+local function _doAllowTP()if _allowTPDebounce then return end;_allowTPDebounce=true;task.spawn(function()SS.SSSetFFlags()SS.SSDoTeleport()task.wait(2)_allowTPDebounce=false end)end
+local function check(prompt)if not SS.autoTPOnAllowState then return end;local t=prompt.ObjectText or""if t==""then return end;if t:lower():find("disallow")then _doAllowTP()end end
+local function watch(obj)if not obj:IsA("ProximityPrompt")then return end;task.defer(function()pcall(check,obj)end)obj:GetPropertyChangedSignal("ObjectText"):Connect(function()pcall(check,obj)end)end
+local r=workspace:FindFirstChild("Plots")if r then for _,d in ipairs(r:GetDescendants())do pcall(watch,d)end;r.DescendantAdded:Connect(function(d)pcall(watch,d)end)end
+workspace.ChildAdded:Connect(function(c)if c.Name=="Plots"then for _,d in ipairs(c:GetDescendants())do pcall(watch,d)end;c.DescendantAdded:Connect(function(d)pcall(watch,d)end)end end)end
