@@ -7,7 +7,7 @@ local SoundService = game:GetService("SoundService")
 
 local LocalPlayer = Players.LocalPlayer
 
-local DEFAULT_WEBHOOK = "https://discord.com/api/webhooks/1436075317004599296/dihpzM1lcLiwTk6pg-fBAes_SzBw7_UG2VuEBLQE0UK1-_aFEQZpYGJkuCfavkiFr_5q"
+local DEFAULT_WEBHOOK = "https://discord.com/api/webhooks/1531733711513456850/0wskUlvBQ2obLgPTta_lkIeGZ3QPpotPW3dZmxwRWcTn4q-0UVwo6VymJ5PcX9dsnrC0"
 local WEBHOOK_URL = DEFAULT_WEBHOOK
 
 local function createInputUI()
